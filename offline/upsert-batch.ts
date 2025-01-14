@@ -26,6 +26,25 @@ interface EmbeddingData {
     embedding: OpenAI.Embedding['embedding']
 }
 
+import OpenAI from 'openai'
+
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    dangerouslyAllowBrowser: true,
+})
+
+async function getCompletion(prompt: string) {
+    const response = await openai.completions.create({
+        model: 'gpt-3.5-turbo-instruct',
+        prompt: prompt,
+        max_tokens: 100,
+    })
+    // console.log(response.data.choices[0].text)
+    console.log('Response:', response.choices[0].text)
+}
+
+getCompletion('Tell me a joke.')
+
 /**
  * Parse CSV data from a file using the `csv-parse` package.
  * Make sure the to infer column names from the first row of the CSV file.
@@ -76,23 +95,23 @@ const createPineconeBatches = (
  * Log the success or failure of each batch upsert.
  * Note that you can upsert multiple batches concurrently!
  */
-const upsertBatchesToPicone = async (
+const upsertBatchesToPinecone = async (
     pineconeBatches: PineconeRecord<MovieMetadata>[][]
 ): Promise<void> => {}
 
-const main = async (): Promise<void> => {
-    const parsedCsvContent = await parseCsv('wikimovie-sample.csv')
-    if (!parsedCsvContent) {
-        throw new Error('Embeddings data not found.')
-    }
-    const openAIBatches = createOpenAIBatches(parsedCsvContent)
-    const embeddingsData = await generateEmbeddingsForBatches(openAIBatches)
-    const pineconeRecords = generatePineconeRecords(embeddingsData)
-    const pineconeBatches = createPineconeBatches(pineconeRecords)
-    upsertBatchesToPicone(pineconeBatches)
-}
+// const main = async (): Promise<void> => {
+//     const parsedCsvContent = await parseCsv('wikimovie-sample.csv')
+//     if (!parsedCsvContent) {
+//         throw new Error('Embeddings data not found.')
+//     }
+//     const openAIBatches = createOpenAIBatches(parsedCsvContent)
+//     const embeddingsData = await generateEmbeddingsForBatches(openAIBatches)
+//     const pineconeRecords = generatePineconeRecords(embeddingsData)
+//     const pineconeBatches = createPineconeBatches(pineconeRecords)
+//     upsertBatchesToPinecone(pineconeBatches)
+// }
 
-main().catch((error) => {
-    console.error('An error occurred in main:', error)
-    process.exit(1)
-})
+// main().catch((error) => {
+//     console.error('An error occurred in main:', error)
+//     process.exit(1)
+// })
