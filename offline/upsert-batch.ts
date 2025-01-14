@@ -52,7 +52,34 @@ getCompletion('Tell me a joke.')
  */
 const parseCsv = async (filename: string): Promise<MovieMetadata[] | null> => {
     const filePath = path.resolve(__dirname, filename)
+    try {
+        const data = await fs.readFile(filePath, {
+            encoding: 'utf8',
+        })
+        const records = parse(data, {
+            columns: true,
+            skip_empty_lines: true,
+        })
+
+        return records
+    } catch (err) {
+        console.log(err)
+    }
 }
+
+// parseCsv('wikimovie-sample.csv')
+
+// const CSVToJSON = (csv: string) => {
+//     const lines = csv.split('\n')
+//     const keys = lines[0].split(',')
+//     return lines.slice(1).map((line) => {
+//         return line.split(',').reduce((acc, cur, i) => {
+//             const toAdd = {}
+//             toAdd[keys[i]] = cur
+//             return { ...acc, ...toAdd }
+//         }, {})
+//     })
+// }
 
 /**
  * Create batches of movie metadata and plots for OpenAI embeddings.
@@ -99,19 +126,20 @@ const upsertBatchesToPinecone = async (
     pineconeBatches: PineconeRecord<MovieMetadata>[][]
 ): Promise<void> => {}
 
-// const main = async (): Promise<void> => {
-//     const parsedCsvContent = await parseCsv('wikimovie-sample.csv')
-//     if (!parsedCsvContent) {
-//         throw new Error('Embeddings data not found.')
-//     }
-//     const openAIBatches = createOpenAIBatches(parsedCsvContent)
-//     const embeddingsData = await generateEmbeddingsForBatches(openAIBatches)
-//     const pineconeRecords = generatePineconeRecords(embeddingsData)
-//     const pineconeBatches = createPineconeBatches(pineconeRecords)
-//     upsertBatchesToPinecone(pineconeBatches)
-// }
+const main = async (): Promise<void> => {
+    const parsedCsvContent = await parseCsv('wikimovie-sample.csv')
+    console.log(parsedCsvContent)
+    if (!parsedCsvContent) {
+        throw new Error('Embeddings data not found.')
+    }
+    // const openAIBatches = createOpenAIBatches(parsedCsvContent)
+    // const embeddingsData = await generateEmbeddingsForBatches(openAIBatches)
+    // const pineconeRecords = generatePineconeRecords(embeddingsData)
+    // const pineconeBatches = createPineconeBatches(pineconeRecords)
+    // upsertBatchesToPinecone(pineconeBatches)
+}
 
-// main().catch((error) => {
-//     console.error('An error occurred in main:', error)
-//     process.exit(1)
-// })
+main().catch((error) => {
+    console.error('An error occurred in main:', error)
+    process.exit(1)
+})
