@@ -1,4 +1,5 @@
 import path from 'path'
+import axios from 'axios'
 import { fileURLToPath } from 'url'
 import { promises as fs } from 'fs'
 import { parse } from 'csv-parse/sync'
@@ -39,8 +40,6 @@ async function getCompletion(prompt: string) {
         prompt: prompt,
         max_tokens: 100,
     })
-    // console.log(response.data.choices[0].text)
-    console.log('Response:', response.choices[0].text)
 }
 
 getCompletion('Tell me a joke.')
@@ -63,24 +62,24 @@ const parseCsv = async (filename: string): Promise<MovieMetadata[] | null> => {
 
         return records
     } catch (err) {
-        console.log(err)
+        // console.log(err)
     }
 }
 
-// parseCsv('wikimovie-sample.csv')
+const generateEmbeddings = async ({ token, model, input }): Promise<void> => {
+    const response = await fetch('https://api.openai.com/v1/embeddings', {
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+        },
+        method: 'POST',
+        body: JSON.stringify({ input, model }),
+    })
 
-// const CSVToJSON = (csv: string) => {
-//     const lines = csv.split('\n')
-//     const keys = lines[0].split(',')
-//     return lines.slice(1).map((line) => {
-//         return line.split(',').reduce((acc, cur, i) => {
-//             const toAdd = {}
-//             toAdd[keys[i]] = cur
-//             return { ...acc, ...toAdd }
-//         }, {})
-//     })
-// }
+    const { error, data, usage } = await response.json()
 
+    return data
+}
 /**
  * Create batches of movie metadata and plots for OpenAI embeddings.
  * It's more efficient to embed multiple inputs in a single request, as explained in the docs: https://platform.openai.com/docs/api-reference/embeddings/create#embeddings-create-input
@@ -90,7 +89,50 @@ const createOpenAIBatches = (
     movies: MovieMetadata[],
     maxWords = 5000,
     maxElements = 2048
-): OpenAIBatch[] => {}
+): OpenAIBatch[] => {
+    const token = process.env.OPENAI_API_KEY
+
+    const requests = movies.map((movie) => {
+        return {
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+            method: 'POST',
+            url: 'https://api.openai.com/v1/chat/completions',
+            data: {
+                ...movie,
+                // model: 'gpt-4o-mini',
+            },
+        }
+    })
+
+    async function sendBatchRequests(url: string, requests: []) {
+        try {
+            const responses = await Promise.all(
+                requests.map((request) => {
+                    return axios(request)
+                })
+            )
+            return responses
+        } catch (error) {
+            console.error('Error sending batch requests:', error.code)
+            throw error
+        }
+    }
+
+    async function executeBatches(requests) {
+        const url = 'https://api.openai.com/v1/batches'
+        try {
+            const responses = await sendBatchRequests(url, requests)
+        } catch (error) {
+            console.log('--------------')
+            console.error('Batch processing failed:', error.code)
+        }
+    }
+
+    executeBatches(requests)
+}
 
 /**
  * Generate embeddings for each batch of movie metadata and plots using the OpenAI API.
@@ -128,11 +170,11 @@ const upsertBatchesToPinecone = async (
 
 const main = async (): Promise<void> => {
     const parsedCsvContent = await parseCsv('wikimovie-sample.csv')
-    console.log(parsedCsvContent)
+    // console.log(parsedCsvContent)
     if (!parsedCsvContent) {
         throw new Error('Embeddings data not found.')
     }
-    // const openAIBatches = createOpenAIBatches(parsedCsvContent)
+    const openAIBatches = createOpenAIBatches(parsedCsvContent)
     // const embeddingsData = await generateEmbeddingsForBatches(openAIBatches)
     // const pineconeRecords = generatePineconeRecords(embeddingsData)
     // const pineconeBatches = createPineconeBatches(pineconeRecords)
